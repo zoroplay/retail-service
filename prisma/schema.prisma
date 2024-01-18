@@ -1,0 +1,96 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Define your data models here
+model CashIn {
+  id          String            @id @default(uuid())
+  date        DateTime?         @default(now())
+  branch_id   String
+  approved_by String?
+  amount      Int?
+  status      TransactionStatus @default(PENDING)
+  comment     String?
+  user_id     String?
+  approved_at DateTime?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+}
+
+model CashOut {
+  id          String            @id @default(uuid())
+  date        DateTime?         @default(now())
+  branch_id   String?
+  approved_by String?
+  amount      Int?
+  status      TransactionStatus @default(PENDING)
+  comment     String?
+  user_id     String?
+  approved_at DateTime?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+}
+
+model Deduction {
+  id          String            @id @default(uuid())
+  year        Int?
+  month       DateTime?
+  branch_id   String?
+  description String?
+  amount      Int?
+  status      TransactionStatus @default(PENDING)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+}
+
+model Expense {
+  id              String            @id @default(uuid())
+  date            DateTime?         @default(now())
+  expense_type_id String
+  expense_type    ExpenseType?      @relation(fields: [expense_type_id], references: [id])
+  branch_id       String?
+  user_id         String?
+  approved_by     String?
+  approved_at     DateTime?
+  amount          Int?
+  status          TransactionStatus @default(PENDING)
+  comment         String?
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+}
+
+model ExpenseCategory {
+  id           String        @id @default(uuid())
+  title        String?
+  description  String?
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  expense_type ExpenseType[]
+}
+
+model ExpenseType {
+  id          String            @id @default(uuid())
+  title       String?
+  amount      Int?
+  status      TransactionStatus @default(PENDING)
+  fixed       Int?
+  category_id String?
+  category    ExpenseCategory?  @relation(fields: [category_id], references: [id])
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  expense     Expense[]
+}
+
+enum TransactionStatus {
+  APPROVED
+  PENDING
+  REJECTED
+}
