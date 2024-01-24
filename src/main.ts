@@ -12,8 +12,9 @@ async function bootstrap(): Promise<void> {
     {
       transport: Transport.GRPC,
       options: {
+        url: `${process.env.GRPC_HOST}:${process.env.GRPC_PORT}`,
         package: protobufPackage,
-        protoPath: join('node_modules/sbe-service-proto/proto/gaming.proto'),
+        protoPath: join('node_modules/sbe-service-proto/proto/retail.proto'),
       },
     },
   );

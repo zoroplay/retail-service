@@ -4,12 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { CommissionBonusGroupEntity } from 'src/entities/commission-bonus-group.entity';
-import { CommissionProfileEntity as CommissionProfileEntity } from 'src/entities/commission-profile.entity';
-import { CommissionProfileTurnoverEntity } from 'src/entities/commission-turnover.entity';
-import { CommissionEntity } from 'src/entities/commission.entity';
-import { NormalPayoutEntity } from 'src/entities/normal-payout.entity';
-import { UserCommissionProfileEntity } from 'src/entities/user-commission-profile.entity';
+import { CommissionBonusGroupEntity } from '../entities/commission-bonus-group.entity';
+import { CommissionProfileEntity as CommissionProfileEntity } from '../entities/commission-profile.entity';
+import { CommissionProfileTurnoverEntity } from '../entities/commission-turnover.entity';
+import { NormalPayoutEntity } from '../entities/normal-payout.entity';
+import { CommissionEntity } from '../entities/commission.entity';
+import { UserCommissionProfileEntity } from '../entities/user-commission-profile.entity';
 import {
   AssignUserCommissionProfile,
   BonusGroupResponse,
@@ -28,7 +28,7 @@ import {
   PayNormalResponse,
   GetNormalRequest,
   Meta,
-} from 'src/proto/retail.pb';
+} from '../proto/retail.pb';
 import { Between, Repository } from 'typeorm';
 
 @Injectable()
