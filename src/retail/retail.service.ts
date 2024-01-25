@@ -57,7 +57,7 @@ export class RetailService implements RetailServiceClient {
     return response;
   }
   async createBonusGroups(data: BonusGroups): Promise<BonusGroupResponse> {
-    console.log(`Group Length: ${data.bonusGroups.length}`);
+    console.log(`BG Length: ${data.bonusGroups.length}`);
     if (data.bonusGroups.length !== 4) {
       return {
         success: false,
@@ -71,6 +71,7 @@ export class RetailService implements RetailServiceClient {
 
     for (const bg of data.bonusGroups) {
       if (prevGB && Number(bg.minSel) <= Number(prevGB.maxSel)) {
+        console.log(`Min Sel: ${bg.minSel}, Max Sel: ${prevGB.maxSel}`);
         return {
           success: false,
           message: `Min Selection of ${Number(bg.minSel)} on group ${bg.group} cannot be Less or equal to Max Selection ${Number(prevGB.maxSel)} on group ${prevGB.group}`,

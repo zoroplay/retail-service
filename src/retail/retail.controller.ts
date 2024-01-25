@@ -28,16 +28,25 @@ export class RetailController implements RetailServiceController {
   // Get Bonus Groups
   @GrpcMethod('RetailService', 'getBonusGroups')
   getBonusGroups(data: Empty): BonusGroupResponse | any {
-    console.log('we made it here');
-    console.log(data);
-    return this.retailService.getBonusGroups(data);
+    try {
+      console.log('getBonusGroups');
+      console.log(data);
+      return this.retailService.getBonusGroups(data);
+    } catch (error) {
+      console.error(error.message);
+    }
   }
 
   // Create Bonus Groups
   @GrpcMethod('RetailService', 'createBonusGroups')
   createBonusGroups(data: BonusGroups): BonusGroupResponse | any {
-    console.log(data);
-    return this.retailService.createBonusGroups(data);
+    try {
+      console.log('createBonusGroups');
+      console.log(data);
+      return this.retailService.createBonusGroups(data);
+    } catch (error) {
+      console.error(error.message);
+    }
   }
 
   // Get Commission Profiles
