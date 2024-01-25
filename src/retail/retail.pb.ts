@@ -9,6 +9,7 @@ export interface Empty {
 
 /** Bonus */
 export interface BonusGroup {
+  id?: number;
   group: string;
   maxSel: number;
   minSel: number;

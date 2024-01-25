@@ -28,7 +28,7 @@ import {
   PayNormalResponse,
   GetNormalRequest,
   Meta,
-} from '../proto/retail.pb';
+} from './retail.pb';
 import { Between, Repository } from 'typeorm';
 
 @Injectable()
@@ -57,42 +57,37 @@ export class RetailService implements RetailServiceClient {
     return response;
   }
   async createBonusGroups(data: BonusGroups): Promise<BonusGroupResponse> {
+    console.log(`Group Length: ${data.bonusGroups.length}`);
     if (data.bonusGroups.length !== 4) {
-      throw new Error('Four Groups allowed for creation or overriding');
+      return {
+        success: false,
+        message: 'Four Groups allowed for creation or overriding',
+        data: [],
+      };
     }
 
     const gbArray: CommissionBonusGroupEntity[] = [];
     let prevGB: CommissionBonusGroupEntity | null = null;
 
     for (const bg of data.bonusGroups) {
-      if (prevGB && bg.minSel <= prevGB.maxSel) {
-        throw new Error(
-          `Min Selection of ${bg.minSel} on group ${bg.group} cannot be Less or equal to Previous avg. Max sel ${prevGB.maxSel} on group ${prevGB.group}`,
-        );
+      if (prevGB && Number(bg.minSel) <= Number(prevGB.maxSel)) {
+        return {
+          success: false,
+          message: `Min Selection of ${Number(bg.minSel)} on group ${bg.group} cannot be Less or equal to Max Selection ${Number(prevGB.maxSel)} on group ${prevGB.group}`,
+          data: [],
+        };
       }
 
-      let commGroupBonus: CommissionBonusGroupEntity;
-
-      const existingRecord =
+      let bgRecord: CommissionBonusGroupEntity =
         await this.commissionBonusGroupRepository.findOneBy({
           group: bg.group,
         });
 
-      if (existingRecord) {
-        // Update logic here
-        existingRecord.minSel = bg.minSel;
-        existingRecord.maxSel = bg.maxSel;
-        existingRecord.rate = bg.rate;
-        existingRecord.rateIsLess = bg.rateIsLess;
-        existingRecord.rateIsMore = bg.rateIsMore;
-        existingRecord.targetStake = bg.targetStake;
-        existingRecord.targetCoupon = bg.targetCoupon;
-
-        commGroupBonus =
-          await this.commissionBonusGroupRepository.save(existingRecord);
+      if (bgRecord) {
+        await this.commissionBonusGroupRepository.update(bgRecord.id, bg);
       } else {
         // Insert logic here
-        commGroupBonus = await this.commissionBonusGroupRepository.save({
+        bgRecord = await this.commissionBonusGroupRepository.save({
           group: bg.group,
           minSel: bg.minSel,
           maxSel: bg.maxSel,
@@ -104,8 +99,8 @@ export class RetailService implements RetailServiceClient {
         });
       }
 
-      gbArray.push(commGroupBonus);
-      prevGB = commGroupBonus;
+      gbArray.push(bgRecord);
+      prevGB = bgRecord;
     }
 
     return {

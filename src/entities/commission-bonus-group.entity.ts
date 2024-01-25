@@ -16,27 +16,47 @@ export class CommissionBonusGroupEntity {
     type: 'double',
     precision: 8,
     scale: 2,
+    default: 0,
   })
   minSel: number;
   @Column({
     type: 'double',
     precision: 8,
     scale: 2,
+    default: 0,
   })
   maxSel: number;
-  @Column()
+  @Column({
+    type: 'double',
+    precision: 8,
+    scale: 2,
+    default: 0,
+  })
   rateIsLess: number;
-  @Column()
+  @Column({
+    type: 'double',
+    precision: 8,
+    scale: 2,
+    default: 0,
+  })
   rateIsMore: number;
-  @Column()
+  @Column({
+    type: 'double',
+    precision: 8,
+    scale: 2,
+    default: 0,
+  })
   rate: number;
   @Column({
     type: 'double',
     precision: 8,
     scale: 2,
+    default: 0,
   })
   targetStake: number;
-  @Column()
+  @Column({
+    default: 0,
+  })
   targetCoupon: number;
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;

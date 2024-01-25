@@ -18,83 +18,94 @@ import {
   Meta,
   PayNormalRequest,
   PayNormalResponse,
-} from 'src/proto/retail.pb';
+} from 'src/retail/retail.pb';
+import { GrpcMethod } from '@nestjs/microservices';
 
 @Controller('retail')
 export class RetailController implements RetailServiceController {
   constructor(private readonly retailService: RetailService) {}
 
   // Get Bonus Groups
-  async getBonusGroups(data: Empty): Promise<BonusGroupResponse> {
+  @GrpcMethod('RetailService', 'getBonusGroups')
+  getBonusGroups(data: Empty): BonusGroupResponse | any {
+    console.log('we made it here');
     console.log(data);
-    return await this.retailService.getBonusGroups(data);
+    return this.retailService.getBonusGroups(data);
   }
 
   // Create Bonus Groups
-  async createBonusGroups(data: BonusGroups): Promise<BonusGroupResponse> {
+  @GrpcMethod('RetailService', 'createBonusGroups')
+  createBonusGroups(data: BonusGroups): BonusGroupResponse | any {
     console.log(data);
-    return await this.retailService.createBonusGroups(data);
+    return this.retailService.createBonusGroups(data);
   }
 
   // Get Commission Profiles
-  async getCommissionProfiles(data: Meta): Promise<CommissionProfilesResponse> {
+  @GrpcMethod('RetailService', 'getCommissionProfiles')
+  getCommissionProfiles(data: Meta): CommissionProfilesResponse | any {
     console.log(data);
-    return await this.retailService.getCommissionProfiles(data);
+    return this.retailService.getCommissionProfiles(data);
   }
 
   // Create Commission Profile
-  async createCommissionProfile(
+  @GrpcMethod('RetailService', 'createCommissionProfile')
+  createCommissionProfile(
     data: CommissionProfile,
-  ): Promise<CommissionProfileResponse> {
+  ): CommissionProfileResponse | any {
     console.log(data);
-    return await this.retailService.createCommissionProfile(data);
+    return this.retailService.createCommissionProfile(data);
   }
 
   // Update Commission Profile
-  async updateCommissionProfile(
+  @GrpcMethod('RetailService', 'updateCommissionProfile')
+  updateCommissionProfile(
     data: CommissionProfile,
-  ): Promise<CommissionProfileResponse> {
+  ): CommissionProfileResponse | any {
     console.log(data);
-    return await this.retailService.updateCommissionProfile(data);
+    return this.retailService.updateCommissionProfile(data);
   }
 
   // Assign User Commission Profile
-  async assignUserCommissionProfile(
+  @GrpcMethod('RetailService', 'assignUserCommissionProfile')
+  assignUserCommissionProfile(
     data: AssignUserCommissionProfile,
-  ): Promise<CommissionProfileResponse> {
+  ): CommissionProfileResponse | any {
     console.log(data);
-    return await this.retailService.assignUserCommissionProfile(data);
+    return this.retailService.assignUserCommissionProfile(data);
   }
 
   // Get Power Bonus
-  async getPowerBonus(data: PowerRequest): Promise<PowerBonusResponse> {
+  @GrpcMethod('RetailService', 'getPowerBonus')
+  getPowerBonus(data: PowerRequest): PowerBonusResponse | any {
     console.log(data);
-    return await this.retailService.getPowerBonus(data);
+    return this.retailService.getPowerBonus(data);
   }
 
   // Pay Out Power Bonus
-  async payOutPowerBonus(data: PayPowerRequest): Promise<PowerResponse> {
+  @GrpcMethod('RetailService', 'getPowerBonus')
+  payOutPowerBonus(data: PayPowerRequest): PowerResponse | any {
     console.log(data);
-    return await this.retailService.payOutPowerBonus(data);
+    return this.retailService.payOutPowerBonus(data);
   }
 
   // Get Normal Bonus
-  async getNormalBonus(data: GetNormalRequest): Promise<NormalResponse> {
+  @GrpcMethod('RetailService', 'getNormalBonus')
+  getNormalBonus(data: GetNormalRequest): NormalResponse | any {
     console.log(data);
-    return await this.retailService.getNormalBonus(data);
+    return this.retailService.getNormalBonus(data);
   }
 
   // Calculate Normal Bonus
-  async calculateNormalBonus(
-    data: PayNormalRequest,
-  ): Promise<PayNormalResponse> {
+  @GrpcMethod('RetailService', 'calculateNormalBonus')
+  calculateNormalBonus(data: PayNormalRequest): PayNormalResponse | any {
     console.log(data);
-    return await this.retailService.calculateNormalBonus(data);
+    return this.retailService.calculateNormalBonus(data);
   }
 
   // Payout Normal bonus
-  async payOutNormalBonus(data: PayNormalRequest): Promise<PayNormalResponse> {
+  @GrpcMethod('RetailService', 'payOutNormalBonus')
+  payOutNormalBonus(data: PayNormalRequest): PayNormalResponse | any {
     console.log(data);
-    return await this.retailService.payOutNormalBonus(data);
+    return this.retailService.payOutNormalBonus(data);
   }
 }
