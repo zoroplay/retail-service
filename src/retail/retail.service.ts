@@ -111,10 +111,18 @@ export class RetailService implements RetailServiceClient {
     };
   }
 
-  async getCommissionProfiles(meta: Meta): Promise<CommissionProfilesResponse> {
-    const page = meta.currentPage || 1;
-    const itemsPerPage = meta.itemsPerPage || 10; // Adjust the number of items per page as needed
-    const skip = (meta.currentPage - 1) * itemsPerPage;
+  async getCommissionProfiles({
+    currentPage,
+    itemsPerPage,
+  }: Meta): Promise<CommissionProfilesResponse> {
+    console.log(`currentPage  : ${currentPage}`);
+    console.log(`itemsPerPage  : ${itemsPerPage}`);
+    currentPage = currentPage || 1;
+    itemsPerPage = itemsPerPage || 10; // Adjust the number of items per page as needed
+    const skip = (currentPage - 1) * itemsPerPage;
+    console.log(`Adjusted`);
+    console.log(`currentPage  : ${currentPage}`);
+    console.log(`itemsPerPage  : ${itemsPerPage}`);
 
     const [commissionProfiles, totalCount] =
       await this.commissionProfileRepository.findAndCount({
@@ -124,6 +132,7 @@ export class RetailService implements RetailServiceClient {
       });
 
     const totalPages = Math.ceil(totalCount / itemsPerPage);
+    console.log(`totalCount  : ${totalCount}`);
 
     const response: CommissionProfilesResponse = {
       success: true,
@@ -132,7 +141,7 @@ export class RetailService implements RetailServiceClient {
       meta: {
         total: totalCount,
         totalPages,
-        currentPage: page,
+        currentPage,
         itemsPerPage,
       },
     };

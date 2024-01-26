@@ -52,8 +52,13 @@ export class RetailController implements RetailServiceController {
   // Get Commission Profiles
   @GrpcMethod('RetailService', 'getCommissionProfiles')
   getCommissionProfiles(data: Meta): CommissionProfilesResponse | any {
-    console.log(data);
-    return this.retailService.getCommissionProfiles(data);
+    try {
+      console.log('getCommissionProfiles');
+      console.log(data);
+      return this.retailService.getCommissionProfiles(data);
+    } catch (error) {
+      console.error(error.message);
+    }
   }
 
   // Create Commission Profile
