@@ -115,14 +115,9 @@ export class RetailService implements RetailServiceClient {
     currentPage,
     itemsPerPage,
   }: Meta): Promise<CommissionProfilesResponse> {
-    console.log(`currentPage  : ${currentPage}`);
-    console.log(`itemsPerPage  : ${itemsPerPage}`);
     currentPage = currentPage || 1;
     itemsPerPage = itemsPerPage || 10; // Adjust the number of items per page as needed
     const skip = (currentPage - 1) * itemsPerPage;
-    console.log(`Adjusted`);
-    console.log(`currentPage  : ${currentPage}`);
-    console.log(`itemsPerPage  : ${itemsPerPage}`);
 
     const [commissionProfiles, totalCount] =
       await this.commissionProfileRepository.findAndCount({
@@ -159,21 +154,80 @@ export class RetailService implements RetailServiceClient {
     };
     return response;
   }
+
   async updateCommissionProfile(
     data: CommissionProfile,
   ): Promise<CommissionProfileResponse> {
+    // Find existing commission profile by ID
     const hasCommissionProfile =
       await this.commissionProfileRepository.findOneBy({
         id: data.id,
       });
+
+    // Check if the profile exists
     if (!hasCommissionProfile) {
       throw new Error('Profile does not exist');
     }
 
-    await this.commissionProfileRepository.update(data.id, data);
+    // Check if turnovers have changed
+    if (data.turnovers !== hasCommissionProfile.turnovers) {
+      // Remove Existing Turnovers
+      await Promise.all(
+        hasCommissionProfile.turnovers.map(async (turnover) => {
+          await this.commissionProfileTurnoverRepository.remove(turnover);
+        }),
+      );
+
+      // Create/Update New Turnovers
+      const newTurnovers = data.turnovers.map((turnover) => {
+        const existingTurnover = hasCommissionProfile.turnovers.find(
+          (t) => t.event === turnover.event,
+        );
+
+        if (existingTurnover) {
+          // Update existing turnover if needed
+          existingTurnover.percentage = turnover.percentage;
+          existingTurnover.maxOdd = turnover.maxOdd;
+          existingTurnover.minOdd = turnover.minOdd;
+          existingTurnover.oddSet = turnover.oddSet;
+          return existingTurnover;
+        }
+
+        // Create a new turnover if it doesn't exist
+        const newTurnover = new CommissionProfileTurnoverEntity();
+        newTurnover.event = turnover.event;
+        newTurnover.commissionProfile = hasCommissionProfile;
+        newTurnover.percentage = turnover.percentage;
+        newTurnover.maxOdd = turnover.maxOdd;
+        newTurnover.minOdd = turnover.minOdd;
+        newTurnover.oddSet = turnover.oddSet;
+        return newTurnover;
+      });
+
+      // Update the profile's turnovers
+      hasCommissionProfile.turnovers =
+        newTurnovers || hasCommissionProfile.turnovers;
+    }
+
+    // Update other profile properties
+    hasCommissionProfile.name = data.name || hasCommissionProfile.name;
+    hasCommissionProfile.default = data.default || hasCommissionProfile.default;
+    hasCommissionProfile.description =
+      data.description || hasCommissionProfile.description;
+    hasCommissionProfile.providerGroup =
+      data.providerGroup || hasCommissionProfile.providerGroup;
+    hasCommissionProfile.percentage =
+      data.percentage || hasCommissionProfile.percentage;
+    hasCommissionProfile.commissionType =
+      data.commissionType || hasCommissionProfile.commissionType;
+
+    // Save the updated profile
+    await this.commissionProfileRepository.save(hasCommissionProfile);
+
+    // Return a success response
     const response: CommissionProfileResponse = {
       success: true,
-      message: 'Commission Profiles Saved Successfully',
+      message: 'Commission Profile Updated Successfully',
       data,
     };
     return response;
@@ -200,7 +254,7 @@ export class RetailService implements RetailServiceClient {
         throw new NotFoundException('Profile or user not found');
       }
 
-      // TODO: CHECK IF USER IS AGENT (Add your logic here)
+      // TODO: CHECK IF USER IS AGENT (Add logic here)
 
       // Check if the user already has the profile assigned
       const existingAssignment =
@@ -272,7 +326,7 @@ export class RetailService implements RetailServiceClient {
 
     const response: NormalResponse = {
       success: true,
-      message: 'Pay this user the following amount as commission',
+      message: 'Pay this users the following amount as commission',
       data: payout,
       meta: {
         total: totalCount,

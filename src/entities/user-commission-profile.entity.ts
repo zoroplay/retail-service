@@ -17,7 +17,7 @@ export class UserCommissionProfileEntity {
   @Column()
   commissionProfileId: number;
 
-  @Column({ length: 255 })
+  @Column({ length: 255, default: 'sports' })
   provider: string;
 
   @CreateDateColumn({ type: 'timestamp' })
