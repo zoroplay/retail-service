@@ -18,12 +18,52 @@ import {
   Meta,
   PayNormalRequest,
   PayNormalResponse,
+  BetData,
+  Response,
 } from 'src/retail/retail.pb';
 import { GrpcMethod } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
 
 @Controller('retail')
 export class RetailController implements RetailServiceController {
   constructor(private readonly retailService: RetailService) {}
+
+  @GrpcMethod('RetailService', 'onBetPlaced')
+  onBetPlaced(
+    request: BetData,
+  ): Response | Promise<Response> | Observable<Response> {
+    try {
+      console.log('onBetPlaced');
+      console.log(request);
+      return this.retailService.onBetPlaced(request);
+    } catch (error) {
+      console.error(error.message);
+    }
+  }
+  @GrpcMethod('RetailService', 'onBetSettled')
+  onBetSettled(
+    request: BetData,
+  ): Response | Promise<Response> | Observable<Response> {
+    try {
+      console.log('onBetSettled');
+      console.log(request);
+      return this.retailService.onBetSettled(request);
+    } catch (error) {
+      console.error(error.message);
+    }
+  }
+  @GrpcMethod('RetailService', 'onBetCancelled')
+  onBetCancelled(
+    request: BetData,
+  ): Response | Promise<Response> | Observable<Response> {
+    try {
+      console.log('onBetCancelled');
+      console.log(request);
+      return this.retailService.onBetCancelled(request);
+    } catch (error) {
+      console.error(error.message);
+    }
+  }
 
   // Get Bonus Groups
   @GrpcMethod('RetailService', 'getBonusGroups')
@@ -86,6 +126,13 @@ export class RetailController implements RetailServiceController {
   ): CommissionProfileResponse | any {
     console.log(data);
     return this.retailService.assignUserCommissionProfile(data);
+  }
+
+  // Create Power Bonus
+  @GrpcMethod('RetailService', 'createPowerBonus')
+  createPowerBonus(data: PowerRequest): PowerBonusResponse | any {
+    console.log(data);
+    return this.retailService.createPowerBonus(data);
   }
 
   // Get Power Bonus

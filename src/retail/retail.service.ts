@@ -28,14 +28,20 @@ import {
   PayNormalResponse,
   GetNormalRequest,
   Meta,
+  BetData,
+  Response,
 } from './retail.pb';
-import { Between, Repository } from 'typeorm';
+import { Between, In, LessThanOrEqual, MoreThan, Repository } from 'typeorm';
+import { BetEntity } from 'src/entities/bet.entity';
+import { PowerPayoutEntity } from 'src/entities/power-payout.entity';
 
 @Injectable()
 export class RetailService implements RetailServiceClient {
   constructor(
     @InjectRepository(CommissionEntity)
     private commissionRepository: Repository<CommissionEntity>,
+    @InjectRepository(BetEntity)
+    private betRepository: Repository<BetEntity>,
     @InjectRepository(CommissionProfileEntity)
     private commissionProfileRepository: Repository<CommissionProfileEntity>,
     @InjectRepository(CommissionProfileTurnoverEntity)
@@ -46,69 +52,147 @@ export class RetailService implements RetailServiceClient {
     private userCommissionProfileRepository: Repository<UserCommissionProfileEntity>,
     @InjectRepository(NormalPayoutEntity)
     private normalPayoutRepository: Repository<NormalPayoutEntity>,
+    @InjectRepository(PowerPayoutEntity)
+    private powerPayoutRepository: Repository<PowerPayoutEntity>,
   ) {}
-  async getBonusGroups(request: Empty): Promise<BonusGroupResponse> {
-    const resp = await this.commissionBonusGroupRepository.find(request);
-    const response: BonusGroupResponse = {
+  async onBetPlaced(request: BetData): Promise<Response> {
+    const bet = new BetEntity();
+    bet.betId = request.betId;
+    bet.userId = request.userId;
+    bet.clientId = request.clientId;
+    bet.selectionCount = request.selectionCount;
+    bet.stake = request.stake;
+    bet.commission = request.commission;
+    bet.winnings = request.winnings;
+    bet.weightedStake = request.selectionCount * request.weightedStake;
+    bet.odds = request.odds;
+    await this.betRepository.save(bet);
+    const response: Response = {
       success: true,
-      message: 'Commission Groups Bonus Retrieved successfully',
-      data: resp,
+      message: 'Bet Saved Successfully',
     };
     return response;
   }
-  async createBonusGroups(data: BonusGroups): Promise<BonusGroupResponse> {
-    console.log(`BG Length: ${data.bonusGroups.length}`);
-    if (data.bonusGroups.length !== 4) {
-      return {
-        success: false,
-        message: 'Four Groups allowed for creation or overriding',
-        data: [],
+
+  async onBetSettled(request: BetData): Promise<Response> {
+    try {
+      const bet = await this.betRepository.findOne({
+        where: { betId: request.betId },
+      });
+      if (bet.settledDate) {
+        const response: Response = {
+          success: false,
+          message: `This Bet has been Marked as Settled On ${bet.settledDate}`,
+        };
+        return response;
+      }
+      bet.winnings = request.winnings;
+      bet.settledDate = new Date(request.settledDate);
+      await this.betRepository.save(bet);
+      const response: Response = {
+        success: true,
+        message: 'Bet Settled Successfully',
       };
+      return response;
+    } catch (error) {
+      console.error(error.message);
     }
+  }
 
-    const gbArray: CommissionBonusGroupEntity[] = [];
-    let prevGB: CommissionBonusGroupEntity | null = null;
+  async onBetCancelled(request: BetData): Promise<Response> {
+    try {
+      const bet = await this.betRepository.findOne({
+        where: { betId: request.betId },
+      });
+      if (bet.cancelledDate) {
+        const response: Response = {
+          success: false,
+          message: `This Bet has been Cancelled On ${bet.cancelledDate}`,
+        };
+        return response;
+      }
+      bet.cancelledDate = new Date();
+      await this.betRepository.save(bet);
+      const response: Response = {
+        success: true,
+        message: 'Bet Cancelled Successfully',
+      };
+      return response;
+    } catch (error) {
+      console.error(error.message);
+    }
+  }
 
-    for (const bg of data.bonusGroups) {
-      if (prevGB && Number(bg.minSel) <= Number(prevGB.maxSel)) {
-        console.log(`Min Sel: ${bg.minSel}, Max Sel: ${prevGB.maxSel}`);
+  async getBonusGroups(request: Empty): Promise<BonusGroupResponse> {
+    try {
+      const resp = await this.commissionBonusGroupRepository.find(request);
+      const response: BonusGroupResponse = {
+        success: true,
+        message: 'Commission Groups Bonus Retrieved successfully',
+        data: resp,
+      };
+      return response;
+    } catch (error) {
+      console.error(error.message);
+    }
+  }
+
+  async createBonusGroups(data: BonusGroups): Promise<BonusGroupResponse> {
+    try {
+      if (data.bonusGroups.length !== 4) {
         return {
           success: false,
-          message: `Min Selection of ${Number(bg.minSel)} on group ${bg.group} cannot be Less or equal to Max Selection ${Number(prevGB.maxSel)} on group ${prevGB.group}`,
+          message: 'Four Groups allowed for creation or overriding',
           data: [],
         };
       }
 
-      let bgRecord: CommissionBonusGroupEntity =
-        await this.commissionBonusGroupRepository.findOneBy({
-          group: bg.group,
-        });
+      const gbArray: CommissionBonusGroupEntity[] = [];
+      let prevGB: CommissionBonusGroupEntity | null = null;
 
-      if (bgRecord) {
-        await this.commissionBonusGroupRepository.update(bgRecord.id, bg);
-      } else {
-        // Insert logic here
-        bgRecord = await this.commissionBonusGroupRepository.save({
-          group: bg.group,
-          minSel: bg.minSel,
-          maxSel: bg.maxSel,
-          rateIsLess: bg.rateIsLess,
-          rateIsMore: bg.rateIsMore,
-          rate: bg.rate,
-          targetStake: bg.targetStake,
-          targetCoupon: bg.targetCoupon,
-        });
+      for (const bg of data.bonusGroups) {
+        if (prevGB && Number(bg.minSel) <= Number(prevGB.maxSel)) {
+          console.log(`Min Sel: ${bg.minSel}, Max Sel: ${prevGB.maxSel}`);
+          return {
+            success: false,
+            message: `Min Selection of ${Number(bg.minSel)} on group ${bg.group} cannot be Less or equal to Max Selection ${Number(prevGB.maxSel)} on group ${prevGB.group}`,
+            data: [],
+          };
+        }
+
+        let bgRecord: CommissionBonusGroupEntity =
+          await this.commissionBonusGroupRepository.findOneBy({
+            group: bg.group,
+          });
+
+        if (bgRecord) {
+          await this.commissionBonusGroupRepository.update(bgRecord.id, bg);
+        } else {
+          // Insert logic here
+          bgRecord = await this.commissionBonusGroupRepository.save({
+            group: bg.group,
+            minSel: bg.minSel,
+            maxSel: bg.maxSel,
+            rateIsLess: bg.rateIsLess,
+            rateIsMore: bg.rateIsMore,
+            rate: bg.rate,
+            targetStake: bg.targetStake,
+            targetCoupon: bg.targetCoupon,
+          });
+        }
+
+        gbArray.push(bgRecord);
+        prevGB = bgRecord;
       }
 
-      gbArray.push(bgRecord);
-      prevGB = bgRecord;
+      return {
+        success: true,
+        message: 'Commission Group Bonus Updated successfully',
+        data: gbArray,
+      };
+    } catch (error) {
+      console.error(error.message);
     }
-
-    return {
-      success: true,
-      message: 'Commission Group Bonus Updated successfully',
-      data: gbArray,
-    };
   }
 
   async getCommissionProfiles({
@@ -119,118 +203,132 @@ export class RetailService implements RetailServiceClient {
     itemsPerPage = itemsPerPage || 10; // Adjust the number of items per page as needed
     const skip = (currentPage - 1) * itemsPerPage;
 
-    const [commissionProfiles, totalCount] =
-      await this.commissionProfileRepository.findAndCount({
-        order: { createdAt: 'DESC' }, // Adjust the order as needed
-        skip,
-        take: itemsPerPage,
-      });
+    try {
+      const [commissionProfiles, totalCount] =
+        await this.commissionProfileRepository.findAndCount({
+          order: { createdAt: 'DESC' }, // Adjust the order as needed
+          skip,
+          take: itemsPerPage,
+        });
 
-    const totalPages = Math.ceil(totalCount / itemsPerPage);
-    console.log(`totalCount  : ${totalCount}`);
+      const totalPages = Math.ceil(totalCount / itemsPerPage);
+      console.log(`totalCount  : ${totalCount}`);
 
-    const response: CommissionProfilesResponse = {
-      success: true,
-      message: 'Commission Profiles Retrieved Successfully',
-      data: commissionProfiles,
-      meta: {
-        total: totalCount,
-        totalPages,
-        currentPage,
-        itemsPerPage,
-      },
-    };
+      const response: CommissionProfilesResponse = {
+        success: true,
+        message: 'Commission Profiles Retrieved Successfully',
+        data: commissionProfiles,
+        meta: {
+          total: totalCount,
+          totalPages,
+          currentPage,
+          itemsPerPage,
+        },
+      };
 
-    return response;
+      return response;
+    } catch (error) {
+      console.error(error.message);
+    }
   }
+
   async createCommissionProfile(
     data: CommissionProfile,
   ): Promise<CommissionProfileResponse> {
-    await this.commissionProfileRepository.save(data);
-    const response: CommissionProfileResponse = {
-      success: true,
-      message: 'Commission Profiles Saved Successfully',
-      data: data,
-    };
-    return response;
+    try {
+      await this.commissionProfileRepository.save(data);
+      const response: CommissionProfileResponse = {
+        success: true,
+        message: 'Commission Profiles Saved Successfully',
+        data: data,
+      };
+      return response;
+    } catch (error) {
+      console.error(error.message);
+    }
   }
 
   async updateCommissionProfile(
     data: CommissionProfile,
   ): Promise<CommissionProfileResponse> {
-    // Find existing commission profile by ID
-    const hasCommissionProfile =
-      await this.commissionProfileRepository.findOneBy({
-        id: data.id,
-      });
+    try {
+      // Find existing commission profile by ID
+      const hasCommissionProfile =
+        await this.commissionProfileRepository.findOneBy({
+          id: data.id,
+        });
 
-    // Check if the profile exists
-    if (!hasCommissionProfile) {
-      throw new Error('Profile does not exist');
-    }
+      // Check if the profile exists
+      if (!hasCommissionProfile) {
+        throw new Error('Profile does not exist');
+      }
 
-    // Check if turnovers have changed
-    if (data.turnovers !== hasCommissionProfile.turnovers) {
-      // Remove Existing Turnovers
-      await Promise.all(
-        hasCommissionProfile.turnovers.map(async (turnover) => {
-          await this.commissionProfileTurnoverRepository.remove(turnover);
-        }),
-      );
-
-      // Create/Update New Turnovers
-      const newTurnovers = data.turnovers.map((turnover) => {
-        const existingTurnover = hasCommissionProfile.turnovers.find(
-          (t) => t.event === turnover.event,
+      // Check if turnovers have changed
+      if (data.turnovers !== hasCommissionProfile.turnovers) {
+        // Remove Existing Turnovers
+        await Promise.all(
+          hasCommissionProfile.turnovers.map(async (turnover) => {
+            await this.commissionProfileTurnoverRepository.remove(turnover);
+          }),
         );
 
-        if (existingTurnover) {
-          // Update existing turnover if needed
-          existingTurnover.percentage = turnover.percentage;
-          existingTurnover.maxOdd = turnover.maxOdd;
-          existingTurnover.minOdd = turnover.minOdd;
-          existingTurnover.oddSet = turnover.oddSet;
-          return existingTurnover;
-        }
+        // Create/Update New Turnovers
+        const newTurnovers = data.turnovers.map((turnover) => {
+          const existingTurnover = hasCommissionProfile.turnovers.find(
+            (t) => t.event === turnover.event,
+          );
 
-        // Create a new turnover if it doesn't exist
-        const newTurnover = new CommissionProfileTurnoverEntity();
-        newTurnover.event = turnover.event;
-        newTurnover.commissionProfile = hasCommissionProfile;
-        newTurnover.percentage = turnover.percentage;
-        newTurnover.maxOdd = turnover.maxOdd;
-        newTurnover.minOdd = turnover.minOdd;
-        newTurnover.oddSet = turnover.oddSet;
-        return newTurnover;
-      });
+          if (existingTurnover) {
+            // Update existing turnover if needed
+            existingTurnover.percentage = turnover.percentage;
+            existingTurnover.maxOdd = turnover.maxOdd;
+            existingTurnover.minOdd = turnover.minOdd;
+            existingTurnover.oddSet = turnover.oddSet;
+            return existingTurnover;
+          }
 
-      // Update the profile's turnovers
-      hasCommissionProfile.turnovers =
-        newTurnovers || hasCommissionProfile.turnovers;
+          // Create a new turnover if it doesn't exist
+          const newTurnover = new CommissionProfileTurnoverEntity();
+          newTurnover.event = turnover.event;
+          newTurnover.commissionProfile = hasCommissionProfile;
+          newTurnover.percentage = turnover.percentage;
+          newTurnover.maxOdd = turnover.maxOdd;
+          newTurnover.minOdd = turnover.minOdd;
+          newTurnover.oddSet = turnover.oddSet;
+          return newTurnover;
+        });
+
+        // Update the profile's turnovers
+        hasCommissionProfile.turnovers =
+          newTurnovers || hasCommissionProfile.turnovers;
+      }
+
+      // Update other profile properties
+      hasCommissionProfile.name = data.name || hasCommissionProfile.name;
+      hasCommissionProfile.default =
+        data.default || hasCommissionProfile.default;
+      hasCommissionProfile.description =
+        data.description || hasCommissionProfile.description;
+      hasCommissionProfile.providerGroup =
+        data.providerGroup || hasCommissionProfile.providerGroup;
+      hasCommissionProfile.percentage =
+        data.percentage || hasCommissionProfile.percentage;
+      hasCommissionProfile.commissionType =
+        data.commissionType || hasCommissionProfile.commissionType;
+
+      // Save the updated profile
+      await this.commissionProfileRepository.save(hasCommissionProfile);
+
+      // Return a success response
+      const response: CommissionProfileResponse = {
+        success: true,
+        message: 'Commission Profile Updated Successfully',
+        data,
+      };
+      return response;
+    } catch (error) {
+      console.error(error.message);
     }
-
-    // Update other profile properties
-    hasCommissionProfile.name = data.name || hasCommissionProfile.name;
-    hasCommissionProfile.default = data.default || hasCommissionProfile.default;
-    hasCommissionProfile.description =
-      data.description || hasCommissionProfile.description;
-    hasCommissionProfile.providerGroup =
-      data.providerGroup || hasCommissionProfile.providerGroup;
-    hasCommissionProfile.percentage =
-      data.percentage || hasCommissionProfile.percentage;
-    hasCommissionProfile.commissionType =
-      data.commissionType || hasCommissionProfile.commissionType;
-
-    // Save the updated profile
-    await this.commissionProfileRepository.save(hasCommissionProfile);
-
-    // Return a success response
-    const response: CommissionProfileResponse = {
-      success: true,
-      message: 'Commission Profile Updated Successfully',
-      data,
-    };
-    return response;
   }
 
   async assignUserCommissionProfile(
@@ -284,6 +382,7 @@ export class RetailService implements RetailServiceClient {
         data: profile,
       };
     } catch (error) {
+      console.error(error.message);
       return {
         success: false,
         message: error.message || 'Internal server error',
@@ -291,13 +390,187 @@ export class RetailService implements RetailServiceClient {
       };
     }
   }
-  async getPowerBonus(data: PowerRequest): Promise<PowerBonusResponse> {
-    console.log(data);
-    throw new Error('Method not implemented.');
+
+  async createPowerBonus(req: PowerRequest): Promise<any> {
+    try {
+      const errors: string[] = [];
+      const successfulUsers: string[] = [];
+      const unsuccessfulUsers: string[] = [];
+      //From Date
+      const fromDate = new Date(req.fromDate);
+      fromDate.setHours(0, 0, 0, 0);
+
+      // To Date
+      const toDate = new Date(req.fromDate);
+      toDate.setHours(0, 0, 0, 0);
+
+      const promises = req.agentIds.map(async (agentId) => {
+        const powerBonus = await this.powerPayoutRepository
+          .createQueryBuilder('power_payouts')
+          .where('power_payouts.agentId = :agentId', { agentId })
+          .andWhere('power_payouts.clientId = :clientId', {
+            clientId: req.clientId,
+          })
+          .andWhere('power_payouts.isPaid = :isPaid', { isPaid: false })
+          .andWhere('DATE(power_payouts.fromDate) = :fromDate', {
+            fromDate: fromDate,
+          })
+          .andWhere('DATE(power_payouts.toDate) = :toDate', {
+            toDate: toDate,
+          })
+          .getOne();
+        console.log(fromDate);
+        if (powerBonus) {
+          console.log(`Agent Id PB EXISTS : ${agentId}`);
+          unsuccessfulUsers.push(`${agentId}`);
+          errors.push(`Generated Power bonus found for agent ${agentId}`);
+          console.log('unsuccessfulUsers');
+        } else {
+          console.log(`Agent Id PB DOES NOT EXIST : ${agentId}`);
+          const data: any = await this.getAgentCalculationForPowerBonus(
+            agentId,
+            req.clientId,
+            req.fromDate,
+            req.toDate,
+          );
+          console.log('payout data');
+          console.log(data);
+          const powerPayout = new PowerPayoutEntity();
+          powerPayout.agentId = data.agentId;
+          powerPayout.clientId = data.clientId;
+          powerPayout.totalStake = data.totalStake;
+          powerPayout.totalTickets = data.totalTickets;
+          powerPayout.totalWeightedStake = data.totalWeightedStake;
+          powerPayout.averageNoOfSelections = data.averageNoOfSelections;
+          powerPayout.grossProfit = data.grossProfit;
+          powerPayout.ggrPercent = data.ggrPercent;
+          powerPayout.rateIsLess = data.rateIsLess;
+          powerPayout.rateIsMore = data.rateIsMore;
+          powerPayout.rate = data.rate;
+          powerPayout.turnoverCommission = data.turnoverCommission;
+          powerPayout.monthlyBonus = data.monthlyBonus;
+          powerPayout.totalWinnings = data.totalWinnings;
+          powerPayout.fromDate = new Date(data.fromDate);
+          powerPayout.toDate = new Date(data.toDate);
+          powerPayout.status = data.status;
+          powerPayout.message = data.message;
+          powerPayout.isPaid = data.isPaid;
+          successfulUsers.push(`${agentId}`);
+          console.log('successfulUsers');
+          console.log(successfulUsers);
+          return await this.powerPayoutRepository.save(powerPayout);
+        }
+      });
+      // Wait for all promises to resolve
+      await Promise.all(promises);
+
+      console.log(`unsuccessfulUsers.length is ${unsuccessfulUsers.length}`);
+      console.log(`successfulUsers.length is ${successfulUsers.length}`);
+      if (unsuccessfulUsers.length > 0) {
+        return {
+          success: true,
+          message: 'Not all users power bonus was generated',
+          data: {
+            successfulUsers,
+            unsuccessfulUsers,
+            errors,
+          },
+        };
+      }
+      return {
+        success: true,
+        message: 'Users Power Bonus Generated Successfully',
+        data: {
+          unsuccessfulUsers,
+          successfulUsers,
+          errors: [],
+        },
+      };
+    } catch (error) {
+      console.error(error.message);
+    }
   }
-  async payOutPowerBonus(data: PayPowerRequest): Promise<PowerResponse> {
-    console.log(data);
-    throw new Error('Method not implemented.');
+
+  async getPowerBonus(req: PowerRequest): Promise<PowerBonusResponse> {
+    try {
+      const resp = await this.powerPayoutRepository.find({
+        where: {
+          agentId: In(req.agentIds),
+          clientId: req.clientId,
+          fromDate: new Date(req.fromDate),
+          toDate: new Date(req.toDate),
+        },
+      });
+      const response: PowerBonusResponse = {
+        success: true,
+        message: 'Success',
+        data: resp,
+      };
+      return response;
+    } catch (error) {
+      console.error(error.message);
+    }
+  }
+
+  async payOutPowerBonus({
+    clientId,
+    agentIds,
+    fromDate,
+    toDate,
+  }: PayPowerRequest): Promise<PowerResponse> {
+    try {
+      const errors: string[] = [];
+      const unPaidUsers: string[] = [];
+      const paidUsers: string[] = [];
+      const promises = agentIds.map(async (agentId) => {
+        const powerBonus = await this.powerPayoutRepository.findOne({
+          where: {
+            agentId: agentId,
+            clientId: clientId,
+            fromDate: new Date(fromDate),
+            toDate: new Date(toDate),
+            isPaid: false,
+          },
+        });
+        if (powerBonus) {
+          //TODO:: dispatch a message to wallet service to pay user from here
+          powerBonus.isPaid = true;
+          powerBonus.message = `Bonus Changed to Paid on ${new Date()}`;
+          paidUsers.push(`${agentId}`);
+          return await this.powerPayoutRepository.save(powerBonus);
+        } else {
+          unPaidUsers.push(`${agentId}`);
+          errors.push(
+            `No Power Bonus Generated within this date range for agent ${agentId} found`,
+          );
+          return {};
+        }
+      });
+      // Wait for all promises to resolve
+      await Promise.all(promises);
+      if (unPaidUsers.length > 0) {
+        return {
+          success: true,
+          message: 'Not all users were paid',
+          data: {
+            paidUsers,
+            unPaidUsers,
+            errors,
+          },
+        };
+      }
+      return {
+        success: true,
+        message: 'Users Power Bonus Status Changed to Paid',
+        data: {
+          unPaidUsers,
+          paidUsers,
+          errors: [],
+        },
+      };
+    } catch (error) {
+      console.error(error.message);
+    }
   }
 
   async getNormalBonus({
@@ -306,40 +579,43 @@ export class RetailService implements RetailServiceClient {
     provider,
     meta,
   }: GetNormalRequest): Promise<NormalResponse> {
-    const page = meta.currentPage || 1;
-    const itemsPerPage = meta.itemsPerPage || 10; // Adjust the number of items per page as needed
-    const skip = (meta.currentPage - 1) * itemsPerPage;
+    try {
+      const page = meta.currentPage || 1;
+      const itemsPerPage = meta.itemsPerPage || 10; // Adjust the number of items per page as needed
+      const skip = (meta.currentPage - 1) * itemsPerPage;
 
-    const [payout, totalCount] = await this.normalPayoutRepository.findAndCount(
-      {
-        where: {
-          createdAt: Between(fromDate, toDate),
-          profileGroup: provider,
+      const [payout, totalCount] =
+        await this.normalPayoutRepository.findAndCount({
+          where: {
+            createdAt: Between(new Date(fromDate), new Date(toDate)),
+            profileGroup: provider,
+          },
+          order: { createdAt: 'DESC' }, // Adjust the order as needed
+          skip,
+          take: itemsPerPage,
+        });
+
+      const totalPages = Math.ceil(totalCount / itemsPerPage);
+
+      const response: NormalResponse = {
+        success: true,
+        message: 'Pay this users the following amount as commission',
+        data: payout,
+        meta: {
+          total: totalCount,
+          totalPages,
+          currentPage: page,
+          itemsPerPage,
         },
-        order: { createdAt: 'DESC' }, // Adjust the order as needed
-        skip,
-        take: itemsPerPage,
-      },
-    );
+      };
 
-    const totalPages = Math.ceil(totalCount / itemsPerPage);
-
-    const response: NormalResponse = {
-      success: true,
-      message: 'Pay this users the following amount as commission',
-      data: payout,
-      meta: {
-        total: totalCount,
-        totalPages,
-        currentPage: page,
-        itemsPerPage,
-      },
-    };
-
-    return response;
+      return response;
+    } catch (error) {
+      console.error(error.message);
+    }
   }
+
   async payOutNormalBonus(data: PayNormalRequest): Promise<PayNormalResponse> {
-    console.log(data);
     try {
       const existingPayout = await this.normalPayoutRepository.findOne({
         where: { betId: data.betId },
@@ -357,9 +633,183 @@ export class RetailService implements RetailServiceClient {
         };
         return response;
       }
+      throw new Error('No Payout Linked to this bet');
+      // const response: PayNormalResponse = {
+      //   success: false,
+      //   message: 'Pay user the following amount as bet commission',
+      //   data: existingPayout.commission,
+      // };
+      // return response;
     } catch (error) {
-      throw new BadRequestException(error.message || 'Internal server error');
+      const response: PayNormalResponse = {
+        success: false,
+        message: error.message || 'Internal server error',
+        data: null,
+      };
+      return response;
     }
+  }
+
+  // Helper Functions Area
+  async getAgentCalculationForPowerBonus(
+    userId: number,
+    clientId: number,
+    fromDate,
+    toDate,
+  ): Promise<any> {
+    const bets = await this.betRepository
+      .createQueryBuilder('bets')
+      .select([
+        'DATE(bets.settledDate) as date',
+        'COUNT(DISTINCT bets.id) as settledBets',
+        'SUM(bets.selectionCount) as totalSelectionCount',
+        'FORMAT(SUM(bets.stake), 2) as totalStake',
+        'FORMAT(SUM(bets.commission), 2) as totalCommission',
+        'FORMAT(SUM(bets.stake - bets.winnings), 2) as GGR',
+        'FORMAT(SUM(bets.winnings), 2) as totalWinnings',
+        'FORMAT(SUM(bets.stake * bets.selectionCount), 2) as totalWeightedStake',
+      ])
+      .where((qb) => {
+        qb.where('bets.userId = :userId', { userId })
+          .andWhere('bets.clientId = :clientId', { clientId })
+          .andWhere('DATE(bets.settledDate) IS NOT NULL')
+          .andWhere('DATE(bets.cancelledDate) IS NULL');
+
+        if (fromDate) {
+          const from = new Date(fromDate).toISOString().split('T')[0];
+          if (toDate) {
+            const to = new Date(toDate).toISOString().split('T')[0];
+            qb.andWhere(
+              'DATE(bets.settledDate) >= :from AND DATE(bets.settledDate) <= :to',
+              {
+                from,
+                to,
+              },
+            );
+          } else {
+            qb.andWhere('DATE(bets.settledDate) = :from', {
+              from,
+            });
+          }
+        }
+      })
+      .groupBy('bets.selectionCount')
+      .addGroupBy('date')
+      .orderBy('date', 'DESC')
+      .getRawMany();
+
+    const totalStake = bets
+      .reduce(
+        (acc, bet) => acc + parseFloat(bet.totalStake.replace(/,/g, '')),
+        0,
+      )
+      .toFixed(2);
+    const totalWinnings = bets
+      .reduce(
+        (acc, bet) => acc + parseFloat(bet.totalWinnings.replace(/,/g, '')),
+        0,
+      )
+      .toFixed(2);
+    const totalGGR = bets
+      .reduce((acc, bet) => acc + parseFloat(bet.GGR.replace(/,/g, '')), 0)
+      .toFixed(2);
+    const totalWeightedStake: number = bets
+      .reduce(
+        (acc, bet) =>
+          acc + parseFloat(bet.totalWeightedStake.replace(/,/g, '')),
+        0,
+      )
+      .toFixed(2);
+    const turnoverCommission: number = bets
+      .reduce(
+        (acc, bet) => acc + parseFloat(bet.totalCommission.replace(/,/g, '')),
+        0,
+      )
+      .toFixed(2);
+    const totalTickets: number = bets
+      .reduce(
+        (acc, bet) => acc + parseFloat(bet.settledBets.replace(/,/g, '')),
+        0,
+      )
+      .toFixed(2);
+
+    // Assuming the variables totalStake, totalWinnings, totalWeightedStake, grossProfit,
+    // averageNoOfSelections, ggr_percent, totalStake, totalTickets, turnoverCommissions are defined.
+
+    // Calculate grossProfit
+    const grossProfit = totalGGR;
+
+    // Calculate averageNoOfSelections
+    const averageNoOfSelections = totalWeightedStake / totalStake;
+
+    // Calculate ggrPercent
+    const ggrPercent = totalGGR / totalStake;
+
+    let monthlyBonus = 0;
+    let powerBonus = 0;
+    let rate = 0;
+    let rateIsLess = 0;
+    let rateIsMore = 0;
+    let monthlyBonusMessage = 'No Bonus available';
+    let status = false;
+
+    // Get a group bonus
+    // Assuming CommissionBonusGroup model exists with the required attributes
+    // and a function findOne that finds the first record meeting the criteria.
+
+    const groupBonus = await this.commissionBonusGroupRepository.findOne({
+      where: {
+        minSel: LessThanOrEqual(averageNoOfSelections),
+        maxSel: MoreThan(averageNoOfSelections),
+      },
+    });
+    console.log(`totalStake is: ${totalStake}`);
+    console.log(
+      `averageNoOfSelections is: ${averageNoOfSelections}, totalWeightedStake: ${totalWeightedStake}`,
+    );
+    if (groupBonus) {
+      if (
+        totalStake >= groupBonus.targetStake &&
+        totalTickets >= groupBonus.targetCoupon
+      ) {
+        rateIsMore = groupBonus.rateIsMore;
+        rateIsLess = groupBonus.rateIsLess;
+        rate =
+          ggrPercent < groupBonus.rate
+            ? groupBonus.rateIsLess
+            : groupBonus.rateIsMore;
+        powerBonus = (rate / 100) * grossProfit;
+        monthlyBonus = powerBonus - turnoverCommission;
+        monthlyBonusMessage = 'Bonus available';
+        status = true;
+      } else {
+        monthlyBonusMessage = 'Bonus does not meet target';
+      }
+    } else {
+      monthlyBonusMessage = 'No Bonus Group Found';
+    }
+    const finalData: any = {
+      agentId: userId,
+      clientId,
+      totalStake,
+      totalTickets,
+      totalWeightedStake,
+      averageNoOfSelections,
+      grossProfit,
+      ggrPercent,
+      rateIsLess: rateIsLess,
+      rateIsMore: rateIsMore,
+      rate,
+      turnoverCommission,
+      monthlyBonus,
+      totalWinnings,
+      status,
+      message: monthlyBonusMessage,
+      fromDate: new Date(fromDate).setHours(0, 0, 0, 0),
+      toDate: new Date(toDate).setHours(0, 0, 0, 0),
+      isPaid: false,
+    };
+    return finalData;
   }
 
   async calculateNormalBonus(
@@ -417,7 +867,8 @@ export class RetailService implements RetailServiceClient {
         totalOdds: data.totalOdds,
         stake: data.stake,
         cashierId: data.cashierId,
-        profileId: data.profileId,
+        commission: commission,
+        profileId: agentUCP.commissionProfileId,
         profileGroup: data.profileGroup,
       });
 
@@ -432,5 +883,9 @@ export class RetailService implements RetailServiceClient {
     } catch (error) {
       throw new BadRequestException(error.message || 'Internal server error');
     }
+  }
+
+  cleanDate(date) {
+    return new Date(date).toISOString().split('T')[0];
   }
 }

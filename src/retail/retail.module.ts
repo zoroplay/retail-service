@@ -8,7 +8,9 @@ import { CommissionBonusGroupEntity } from 'src/entities/commission-bonus-group.
 import { CommissionProfileTurnoverEntity } from 'src/entities/commission-turnover.entity';
 import { UserCommissionProfileEntity } from 'src/entities/user-commission-profile.entity';
 import { NormalPayoutEntity } from 'src/entities/normal-payout.entity';
+import { BetEntity } from 'src/entities/bet.entity';
 import { HttpModule } from '@nestjs/axios';
+import { PowerPayoutEntity } from 'src/entities/power-payout.entity';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { HttpModule } from '@nestjs/axios';
       CommissionProfileTurnoverEntity,
       UserCommissionProfileEntity,
       NormalPayoutEntity,
+      BetEntity,
+      PowerPayoutEntity,
     ]),
     HttpModule,
   ],
