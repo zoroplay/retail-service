@@ -47,7 +47,7 @@ export class NormalPayoutEntity {
   @Column({ default: false })
   isPaid: boolean;
   @CreateDateColumn({ type: 'timestamp' })
-  createdAt: Date;
+  createdAt: string;
   @UpdateDateColumn({ type: 'timestamp' })
-  updatedAt: Date;
+  updatedAt: string;
 }

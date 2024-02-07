@@ -68,8 +68,8 @@ export class CommissionEntity {
   userCommissionProfileId: number;
 
   @CreateDateColumn({ type: 'timestamp' })
-  createdAt: Date;
+  createdAt: string;
 
   @UpdateDateColumn({ type: 'timestamp' })
-  updatedAt: Date;
+  updatedAt: string;
 }

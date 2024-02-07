@@ -45,7 +45,7 @@ export class CommissionProfileEntity {
   turnovers: CommissionProfileTurnoverEntity[];
 
   @CreateDateColumn({ type: 'timestamp' })
-  createdAt: Date;
+  createdAt: string;
   @UpdateDateColumn({ type: 'timestamp' })
-  updatedAt: Date;
+  updatedAt: string;
 }

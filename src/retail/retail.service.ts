@@ -34,6 +34,7 @@ import {
 import { Between, In, LessThanOrEqual, MoreThan, Repository } from 'typeorm';
 import { BetEntity } from 'src/entities/bet.entity';
 import { PowerPayoutEntity } from 'src/entities/power-payout.entity';
+import * as dayjs from 'dayjs';
 
 @Injectable()
 export class RetailService implements RetailServiceClient {
@@ -62,7 +63,7 @@ export class RetailService implements RetailServiceClient {
     bet.clientId = request.clientId;
     bet.selectionCount = request.selectionCount;
     bet.stake = request.stake;
-    bet.commission = request.commission;
+    bet.commission = request.commission; //TODO: CHANGE TO CALL CALCULATE NORMAL BONUS
     bet.winnings = request.winnings;
     bet.weightedStake = request.selectionCount * request.weightedStake;
     bet.odds = request.odds;
@@ -87,7 +88,7 @@ export class RetailService implements RetailServiceClient {
         return response;
       }
       bet.winnings = request.winnings;
-      bet.settledDate = new Date(request.settledDate);
+      bet.settledDate = dayjs(request.settledDate).format('YYYY-MM-DD');
       await this.betRepository.save(bet);
       const response: Response = {
         success: true,
@@ -111,7 +112,7 @@ export class RetailService implements RetailServiceClient {
         };
         return response;
       }
-      bet.cancelledDate = new Date();
+      bet.cancelledDate = dayjs().format('YYYY-MM-DD');
       await this.betRepository.save(bet);
       const response: Response = {
         success: true,
@@ -397,12 +398,10 @@ export class RetailService implements RetailServiceClient {
       const successfulUsers: string[] = [];
       const unsuccessfulUsers: string[] = [];
       //From Date
-      const fromDate = new Date(req.fromDate);
-      fromDate.setHours(0, 0, 0, 0);
+      const fromDate = dayjs(req.fromDate).format('YYYY-MM-DD');
 
       // To Date
-      const toDate = new Date(req.fromDate);
-      toDate.setHours(0, 0, 0, 0);
+      const toDate = dayjs(req.toDate).format('YYYY-MM-DD');
 
       const promises = req.agentIds.map(async (agentId) => {
         const powerBonus = await this.powerPayoutRepository
@@ -450,8 +449,8 @@ export class RetailService implements RetailServiceClient {
           powerPayout.turnoverCommission = data.turnoverCommission;
           powerPayout.monthlyBonus = data.monthlyBonus;
           powerPayout.totalWinnings = data.totalWinnings;
-          powerPayout.fromDate = new Date(data.fromDate);
-          powerPayout.toDate = new Date(data.toDate);
+          powerPayout.fromDate = dayjs(req.fromDate).format('YYYY-MM-DD');
+          powerPayout.toDate = dayjs(req.toDate).format('YYYY-MM-DD');
           powerPayout.status = data.status;
           powerPayout.message = data.message;
           powerPayout.isPaid = data.isPaid;
@@ -497,8 +496,8 @@ export class RetailService implements RetailServiceClient {
         where: {
           agentId: In(req.agentIds),
           clientId: req.clientId,
-          fromDate: new Date(req.fromDate),
-          toDate: new Date(req.toDate),
+          fromDate: dayjs(req.fromDate).format('YYYY-MM-DD'),
+          toDate: dayjs(req.toDate).format('YYYY-MM-DD'),
         },
       });
       const response: PowerBonusResponse = {
@@ -527,15 +526,15 @@ export class RetailService implements RetailServiceClient {
           where: {
             agentId: agentId,
             clientId: clientId,
-            fromDate: new Date(fromDate),
-            toDate: new Date(toDate),
+            fromDate: dayjs(fromDate).format('YYYY-MM-DD'),
+            toDate: dayjs(toDate).format('YYYY-MM-DD'),
             isPaid: false,
           },
         });
         if (powerBonus) {
           //TODO:: dispatch a message to wallet service to pay user from here
           powerBonus.isPaid = true;
-          powerBonus.message = `Bonus Changed to Paid on ${new Date()}`;
+          powerBonus.message = `Bonus Changed to Paid on ${dayjs().format('YYYY-MM-DD')}`;
           paidUsers.push(`${agentId}`);
           return await this.powerPayoutRepository.save(powerBonus);
         } else {
@@ -587,7 +586,10 @@ export class RetailService implements RetailServiceClient {
       const [payout, totalCount] =
         await this.normalPayoutRepository.findAndCount({
           where: {
-            createdAt: Between(new Date(fromDate), new Date(toDate)),
+            createdAt: Between(
+              dayjs(fromDate).format('YYYY-MM-DD'),
+              dayjs(toDate).format('YYYY-MM-DD'),
+            ),
             profileGroup: provider,
           },
           order: { createdAt: 'DESC' }, // Adjust the order as needed
@@ -657,6 +659,9 @@ export class RetailService implements RetailServiceClient {
     fromDate,
     toDate,
   ): Promise<any> {
+    console.error('start');
+    console.error(userId);
+    console.error(clientId);
     const bets = await this.betRepository
       .createQueryBuilder('bets')
       .select([
@@ -676,9 +681,13 @@ export class RetailService implements RetailServiceClient {
           .andWhere('DATE(bets.cancelledDate) IS NULL');
 
         if (fromDate) {
-          const from = new Date(fromDate).toISOString().split('T')[0];
+          const from = dayjs(fromDate).format('YYYY-MM-DD');
+          console.error('end 1');
+          console.error(from);
           if (toDate) {
-            const to = new Date(toDate).toISOString().split('T')[0];
+            const to = dayjs(toDate).format('YYYY-MM-DD');
+            console.error(to);
+            console.error('end 2');
             qb.andWhere(
               'DATE(bets.settledDate) >= :from AND DATE(bets.settledDate) <= :to',
               {
@@ -698,6 +707,29 @@ export class RetailService implements RetailServiceClient {
       .orderBy('date', 'DESC')
       .getRawMany();
 
+    if (bets.length <= 0) {
+      return {
+        agentId: userId,
+        clientId,
+        totalStake: 0,
+        totalTickets: 0,
+        totalWeightedStake: 0,
+        averageNoOfSelections: 0,
+        grossProfit: 0,
+        ggrPercent: 0,
+        rateIsLess: 0,
+        rateIsMore: 0,
+        rate: 0,
+        turnoverCommission: 0,
+        monthlyBonus: 0,
+        totalWinnings: 0,
+        status: 0,
+        message: 'No Bets Found',
+        fromDate: dayjs(fromDate).format('YYYY-MM-DD'),
+        toDate: dayjs(toDate).format('YYYY-MM-DD'),
+        isPaid: false,
+      };
+    }
     const totalStake = bets
       .reduce(
         (acc, bet) => acc + parseFloat(bet.totalStake.replace(/,/g, '')),
@@ -739,6 +771,12 @@ export class RetailService implements RetailServiceClient {
     // Calculate grossProfit
     const grossProfit = totalGGR;
 
+    console.error(totalStake);
+    console.error('end 3');
+    console.error(totalWeightedStake);
+    console.error('end 4');
+    console.error(totalWeightedStake / totalStake);
+    console.error('end 5');
     // Calculate averageNoOfSelections
     const averageNoOfSelections = totalWeightedStake / totalStake;
 
@@ -757,6 +795,8 @@ export class RetailService implements RetailServiceClient {
     // Assuming CommissionBonusGroup model exists with the required attributes
     // and a function findOne that finds the first record meeting the criteria.
 
+    console.error(averageNoOfSelections);
+    console.error('end 6');
     const groupBonus = await this.commissionBonusGroupRepository.findOne({
       where: {
         minSel: LessThanOrEqual(averageNoOfSelections),
@@ -805,8 +845,8 @@ export class RetailService implements RetailServiceClient {
       totalWinnings,
       status,
       message: monthlyBonusMessage,
-      fromDate: new Date(fromDate).setHours(0, 0, 0, 0),
-      toDate: new Date(toDate).setHours(0, 0, 0, 0),
+      fromDate: dayjs(fromDate).format('YYYY-MM-DD'),
+      toDate: dayjs(toDate).format('YYYY-MM-DD'),
       isPaid: false,
     };
     return finalData;
@@ -883,9 +923,5 @@ export class RetailService implements RetailServiceClient {
     } catch (error) {
       throw new BadRequestException(error.message || 'Internal server error');
     }
-  }
-
-  cleanDate(date) {
-    return new Date(date).toISOString().split('T')[0];
   }
 }

@@ -17,8 +17,8 @@ export interface BonusGroup {
   rateIsMore: number;
   targetCoupon: number;
   targetStake: number;
-  createdAt?: string | Date | undefined;
-  updatedAt?: string | Date | undefined;
+  createdAt?: string | undefined;
+  updatedAt?: string | undefined;
 }
 
 export interface BonusGroups {
@@ -43,8 +43,8 @@ export interface CommissionProfile {
   percentage: number;
   commissionType: number;
   turnovers: CommissionTurnover[];
-  createdAt?: string | Date | undefined;
-  updatedAt?: string | Date | undefined;
+  createdAt?: string | undefined;
+  updatedAt?: string | undefined;
 }
 
 export interface CommissionProfileResponse {
@@ -63,16 +63,16 @@ export interface CommissionProfilesResponse {
 export interface AssignUserCommissionProfile {
   profileId: number;
   userId: number;
-  createdAt?: string | Date | undefined;
-  updatedAt?: string | Date | undefined;
+  createdAt?: string | undefined;
+  updatedAt?: string | undefined;
 }
 
 /** Power Bonus */
 export interface PowerRequest {
   agentIds: number[];
   clientId: number;
-  fromDate: string | Date;
-  toDate: string | Date;
+  fromDate: string;
+  toDate: string;
 }
 
 export interface BetData {
@@ -81,15 +81,15 @@ export interface BetData {
   userId: number;
   clientId: number;
   selectionCount: number;
-  settledDate?: string | Date | undefined;
-  cancelledDate?: string | Date | undefined;
+  settledDate?: string | undefined;
+  cancelledDate?: string | undefined;
   stake: number;
   commission: number;
   winnings: number;
   weightedStake: number;
   odds: number;
-  createdAt?: string | Date | undefined;
-  updatedAt?: string | Date | undefined;
+  createdAt?: string | undefined;
+  updatedAt?: string | undefined;
 }
 
 export interface Response {
@@ -113,13 +113,13 @@ export interface PowerBonusData {
   turnoverCommission: number;
   monthlyBonus: number;
   totalWinnings: number;
-  fromDate: string | Date;
-  toDate: string | Date;
+  fromDate: string;
+  toDate: string;
   status: boolean;
   message: string;
   isPaid: boolean;
-  createdAt?: string | Date | undefined;
-  updatedAt?: string | Date | undefined;
+  createdAt?: string | undefined;
+  updatedAt?: string | undefined;
 }
 
 export interface PayPowerRequest {
@@ -215,8 +215,8 @@ export interface NormalPayout {
   profileGroup: string;
   commission: number;
   isPaid: boolean;
-  createdAt?: string | Date | undefined;
-  updatedAt?: string | Date | undefined;
+  createdAt?: string | undefined;
+  updatedAt?: string | undefined;
 }
 
 /** Commission Reequest */
@@ -240,8 +240,8 @@ export interface Commission {
   endDate: string;
   isPaid: boolean;
   userCommissionProfileId: number;
-  createdAt?: string | Date | undefined;
-  updatedAt?: string | Date | undefined;
+  createdAt?: string | undefined;
+  updatedAt?: string | undefined;
 }
 
 export interface CommissionTurnover {
@@ -252,8 +252,8 @@ export interface CommissionTurnover {
   maxOdd: number;
   minOdd: number;
   oddSet: boolean;
-  createdAt?: string | Date | undefined;
-  updatedAt?: string | Date | undefined;
+  createdAt?: string | undefined;
+  updatedAt?: string | undefined;
 }
 
 export const RETAIL_PACKAGE_NAME = "retail";

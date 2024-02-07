@@ -99,22 +99,22 @@ export class PowerPayoutEntity {
     default: 0,
   })
   totalWinnings: number;
-  @Column({
-    type: 'timestamp',
-  })
-  fromDate: Date;
-  @Column({
-    type: 'timestamp',
-  })
-  toDate: Date;
   @Column()
   status: boolean;
   @Column()
   message: string;
   @Column()
   isPaid: boolean;
+  @Column({
+    type: 'date',
+  })
+  fromDate: string;
+  @Column({
+    type: 'date',
+  })
+  toDate: string;
   @CreateDateColumn({ type: 'timestamp' })
-  createdAt: Date;
+  createdAt: string;
   @UpdateDateColumn({ type: 'timestamp' })
-  updatedAt: Date;
+  updatedAt: string;
 }

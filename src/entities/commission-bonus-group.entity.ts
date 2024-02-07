@@ -59,7 +59,7 @@ export class CommissionBonusGroupEntity {
   })
   targetCoupon: number;
   @CreateDateColumn({ type: 'timestamp' })
-  createdAt: Date;
+  createdAt: string;
   @UpdateDateColumn({ type: 'timestamp' })
-  updatedAt: Date;
+  updatedAt: string;
 }

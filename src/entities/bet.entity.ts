@@ -19,10 +19,10 @@ export class BetEntity {
   clientId: number;
   @Column()
   selectionCount: number;
-  @Column({ type: 'timestamp', nullable: true })
-  cancelledDate: Date;
-  @Column({ type: 'timestamp', nullable: true })
-  settledDate: Date;
+  @Column({ type: 'date', nullable: true })
+  cancelledDate: string;
+  @Column({ type: 'date', nullable: true })
+  settledDate: string;
   @Column({
     type: 'decimal',
     precision: 8,
