@@ -15,6 +15,9 @@ export class UserCommissionProfileEntity {
   userId: number;
 
   @Column()
+  clientId: number;
+
+  @Column()
   commissionProfileId: number;
 
   @Column({ length: 255, default: 'sports' })

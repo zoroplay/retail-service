@@ -68,6 +68,21 @@ export class RetailService implements RetailServiceClient {
     bet.weightedStake = request.selectionCount * request.weightedStake;
     bet.odds = request.odds;
     await this.betRepository.save(bet);
+
+    const payNormalRequest: PayNormalRequest = {
+      betId: bet.betId,
+      userId: request.userId,
+      clientId: request.clientId,
+      profileGroup: 'sports',
+      selectionsCount: request.selectionCount,
+      totalOdds: request.odds,
+      stake: request.stake,
+    };
+    const commissionData = await this.calculateNormalBonus(payNormalRequest);
+    if (commissionData.success) {
+      bet.commission = commissionData.data;
+      await this.betRepository.save(bet);
+    }
     const response: Response = {
       success: true,
       message: 'Bet Saved Successfully',
@@ -403,7 +418,7 @@ export class RetailService implements RetailServiceClient {
       // To Date
       const toDate = dayjs(req.toDate).format('YYYY-MM-DD');
 
-      const promises = req.agentIds.map(async (agentId) => {
+      const promises = req.userIds.map(async (agentId) => {
         const powerBonus = await this.powerPayoutRepository
           .createQueryBuilder('power_payouts')
           .where('power_payouts.agentId = :agentId', { agentId })
@@ -435,7 +450,7 @@ export class RetailService implements RetailServiceClient {
           console.log('payout data');
           console.log(data);
           const powerPayout = new PowerPayoutEntity();
-          powerPayout.agentId = data.agentId;
+          powerPayout.userId = data.agentId;
           powerPayout.clientId = data.clientId;
           powerPayout.totalStake = data.totalStake;
           powerPayout.totalTickets = data.totalTickets;
@@ -494,7 +509,7 @@ export class RetailService implements RetailServiceClient {
     try {
       const resp = await this.powerPayoutRepository.find({
         where: {
-          agentId: In(req.agentIds),
+          userId: In(req.userIds),
           clientId: req.clientId,
           fromDate: dayjs(req.fromDate).format('YYYY-MM-DD'),
           toDate: dayjs(req.toDate).format('YYYY-MM-DD'),
@@ -513,7 +528,7 @@ export class RetailService implements RetailServiceClient {
 
   async payOutPowerBonus({
     clientId,
-    agentIds,
+    userIds,
     fromDate,
     toDate,
   }: PayPowerRequest): Promise<PowerResponse> {
@@ -521,10 +536,10 @@ export class RetailService implements RetailServiceClient {
       const errors: string[] = [];
       const unPaidUsers: string[] = [];
       const paidUsers: string[] = [];
-      const promises = agentIds.map(async (agentId) => {
+      const promises = userIds.map(async (agentId) => {
         const powerBonus = await this.powerPayoutRepository.findOne({
           where: {
-            agentId: agentId,
+            userId: agentId,
             clientId: clientId,
             fromDate: dayjs(fromDate).format('YYYY-MM-DD'),
             toDate: dayjs(toDate).format('YYYY-MM-DD'),
@@ -852,12 +867,18 @@ export class RetailService implements RetailServiceClient {
     return finalData;
   }
 
-  async calculateNormalBonus(
-    data: PayNormalRequest,
-  ): Promise<PayNormalResponse> {
+  async calculateNormalBonus({
+    betId,
+    userId,
+    clientId,
+    profileGroup,
+    selectionsCount,
+    totalOdds,
+    stake,
+  }: PayNormalRequest): Promise<PayNormalResponse> {
     try {
       const existingPayout = await this.normalPayoutRepository.findOne({
-        where: { betId: data.betId },
+        where: { betId: betId },
       });
       if (existingPayout) {
         const response: PayNormalResponse = {
@@ -868,7 +889,7 @@ export class RetailService implements RetailServiceClient {
         return response;
       }
       const agentUCP = await this.userCommissionProfileRepository.findOne({
-        where: { userId: data.cashierId, provider: data.profileGroup },
+        where: { userId: userId, clientId: clientId, provider: profileGroup },
       });
       const commissionProfile = await this.commissionProfileRepository.findOne({
         where: { id: agentUCP.commissionProfileId },
@@ -881,7 +902,7 @@ export class RetailService implements RetailServiceClient {
 
       const turnover = await this.commissionProfileTurnoverRepository.findOne({
         where: {
-          event: data.selectionsCount,
+          event: selectionsCount,
           commissionProfile: {
             id: commissionProfile.id,
           },
@@ -890,26 +911,24 @@ export class RetailService implements RetailServiceClient {
 
       if (turnover) {
         if (turnover.oddSet) {
-          if (
-            data.totalOdds > turnover.minOdd &&
-            data.totalOdds < turnover.maxOdd
-          ) {
-            commission = (data.stake * turnover.percentage) / 100;
+          if (totalOdds > turnover.minOdd && totalOdds < turnover.maxOdd) {
+            commission = (stake * turnover.percentage) / 100;
           }
         } else {
-          commission = (data.stake * turnover.percentage) / 100;
+          commission = (stake * turnover.percentage) / 100;
         }
       }
       // Assign the profile to the user
       const normalPayout = this.normalPayoutRepository.create({
-        betId: data.betId,
-        selectionsCount: data.selectionsCount,
-        totalOdds: data.totalOdds,
-        stake: data.stake,
-        cashierId: data.cashierId,
+        betId: betId,
+        selectionsCount: selectionsCount,
+        totalOdds: totalOdds,
+        stake: stake,
+        userId: userId,
+        clientId: clientId,
         commission: commission,
         profileId: agentUCP.commissionProfileId,
-        profileGroup: data.profileGroup,
+        profileGroup: profileGroup,
       });
 
       await this.normalPayoutRepository.save(normalPayout);

@@ -31,7 +31,9 @@ export class NormalPayoutEntity {
   })
   stake: number;
   @Column()
-  cashierId: number;
+  userId: number;
+  @Column()
+  clientId: number;
   @Column()
   profileId: number;
   @Column()

@@ -13,6 +13,8 @@ export class CommissionEntity {
   @Column()
   userId: number;
   @Column()
+  clientId: number;
+  @Column()
   totalTickets: number;
   @Column({
     type: 'decimal',

@@ -12,7 +12,7 @@ export class PowerPayoutEntity {
   @PrimaryGeneratedColumn()
   id: number;
   @Column()
-  agentId: number;
+  userId: number;
   @Column()
   clientId: number;
   @Column({
