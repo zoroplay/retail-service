@@ -63,7 +63,7 @@ export class RetailService implements RetailServiceClient {
     bet.clientId = request.clientId;
     bet.selectionCount = request.selectionCount;
     bet.stake = request.stake;
-    bet.commission = request.commission; //TODO: CHANGE TO CALL CALCULATE NORMAL BONUS
+    bet.commission = 0;
     bet.winnings = request.winnings;
     bet.weightedStake = request.selectionCount * request.weightedStake;
     bet.odds = request.odds;
@@ -418,10 +418,10 @@ export class RetailService implements RetailServiceClient {
       // To Date
       const toDate = dayjs(req.toDate).format('YYYY-MM-DD');
 
-      const promises = req.userIds.map(async (agentId) => {
+      const promises = req.userIds.map(async (userId) => {
         const powerBonus = await this.powerPayoutRepository
           .createQueryBuilder('power_payouts')
-          .where('power_payouts.agentId = :agentId', { agentId })
+          .where('power_payouts.userId = :userId', { userId })
           .andWhere('power_payouts.clientId = :clientId', {
             clientId: req.clientId,
           })
@@ -435,14 +435,14 @@ export class RetailService implements RetailServiceClient {
           .getOne();
         console.log(fromDate);
         if (powerBonus) {
-          console.log(`Agent Id PB EXISTS : ${agentId}`);
-          unsuccessfulUsers.push(`${agentId}`);
-          errors.push(`Generated Power bonus found for agent ${agentId}`);
+          console.log(`Agent Id PB EXISTS : ${userId}`);
+          unsuccessfulUsers.push(`${userId}`);
+          errors.push(`Generated Power bonus found for agent ${userId}`);
           console.log('unsuccessfulUsers');
         } else {
-          console.log(`Agent Id PB DOES NOT EXIST : ${agentId}`);
+          console.log(`Agent Id PB DOES NOT EXIST : ${userId}`);
           const data: any = await this.getAgentCalculationForPowerBonus(
-            agentId,
+            userId,
             req.clientId,
             req.fromDate,
             req.toDate,
@@ -450,7 +450,7 @@ export class RetailService implements RetailServiceClient {
           console.log('payout data');
           console.log(data);
           const powerPayout = new PowerPayoutEntity();
-          powerPayout.userId = data.agentId;
+          powerPayout.userId = data.userId;
           powerPayout.clientId = data.clientId;
           powerPayout.totalStake = data.totalStake;
           powerPayout.totalTickets = data.totalTickets;
@@ -469,7 +469,7 @@ export class RetailService implements RetailServiceClient {
           powerPayout.status = data.status;
           powerPayout.message = data.message;
           powerPayout.isPaid = data.isPaid;
-          successfulUsers.push(`${agentId}`);
+          successfulUsers.push(`${userId}`);
           console.log('successfulUsers');
           console.log(successfulUsers);
           return await this.powerPayoutRepository.save(powerPayout);
@@ -536,10 +536,10 @@ export class RetailService implements RetailServiceClient {
       const errors: string[] = [];
       const unPaidUsers: string[] = [];
       const paidUsers: string[] = [];
-      const promises = userIds.map(async (agentId) => {
+      const promises = userIds.map(async (userId) => {
         const powerBonus = await this.powerPayoutRepository.findOne({
           where: {
-            userId: agentId,
+            userId: userId,
             clientId: clientId,
             fromDate: dayjs(fromDate).format('YYYY-MM-DD'),
             toDate: dayjs(toDate).format('YYYY-MM-DD'),
@@ -550,12 +550,12 @@ export class RetailService implements RetailServiceClient {
           //TODO:: dispatch a message to wallet service to pay user from here
           powerBonus.isPaid = true;
           powerBonus.message = `Bonus Changed to Paid on ${dayjs().format('YYYY-MM-DD')}`;
-          paidUsers.push(`${agentId}`);
+          paidUsers.push(`${userId}`);
           return await this.powerPayoutRepository.save(powerBonus);
         } else {
-          unPaidUsers.push(`${agentId}`);
+          unPaidUsers.push(`${userId}`);
           errors.push(
-            `No Power Bonus Generated within this date range for agent ${agentId} found`,
+            `No Power Bonus Generated within this date range for agent ${userId} found`,
           );
           return {};
         }
@@ -724,7 +724,7 @@ export class RetailService implements RetailServiceClient {
 
     if (bets.length <= 0) {
       return {
-        agentId: userId,
+        userId: userId,
         clientId,
         totalStake: 0,
         totalTickets: 0,
@@ -793,7 +793,13 @@ export class RetailService implements RetailServiceClient {
     console.error(totalWeightedStake / totalStake);
     console.error('end 5');
     // Calculate averageNoOfSelections
-    const averageNoOfSelections = totalWeightedStake / totalStake;
+    let averageNoOfSelections = totalWeightedStake / totalStake;
+    if (
+      Number.isNaN(averageNoOfSelections) ||
+      averageNoOfSelections === undefined
+    ) {
+      averageNoOfSelections = 0;
+    }
 
     // Calculate ggrPercent
     const ggrPercent = totalGGR / totalStake;
@@ -844,7 +850,7 @@ export class RetailService implements RetailServiceClient {
       monthlyBonusMessage = 'No Bonus Group Found';
     }
     const finalData: any = {
-      agentId: userId,
+      userId: userId,
       clientId,
       totalStake,
       totalTickets,
@@ -895,7 +901,11 @@ export class RetailService implements RetailServiceClient {
         where: { id: agentUCP.commissionProfileId },
       });
       if (!agentUCP || !agentUCP.commissionProfileId) {
-        throw new NotFoundException('User or profile not found');
+        return {
+          success: false,
+          message: 'User or profile not found',
+          data: 0,
+        };
       }
 
       let commission = 0;
